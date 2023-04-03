@@ -13,7 +13,7 @@ addprocs(4) # Add 4 worker processes
     return count
 end
 
-function parallel_count_chars(filename, nprocs)
+function parallel_count_chars(nprocs, filename)
     num = filesize(filename)
     pids = workers()
     @sync begin
@@ -35,14 +35,13 @@ function parallel_count_chars(filename, nprocs)
 end
 
 function main()
-    if length(ARGS) < 2 || length(ARGS) > 3
+    if length(ARGS) < 2 || length(ARGS) >= 2
         println("Usage: julia <program.jl> <nprocs> <filename>")
         return
     end
 
     nprocs = parse(Int, ARGS[1])
     filename = ARGS[2]
-    println("$nprocs and $filename")
     @time parallel_count_chars(filename, nprocs)
 end
 
