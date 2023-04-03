@@ -6,9 +6,11 @@ addprocs(4) # Add 4 worker processes
     seek(fp, start)
     str = read(fp, stop - start + 1)
     close(fp)
-    count = zeros(Int, 4)
+    count = zeros(Int, 26)
     for c in str
-        count[c - 'a' + 1] += 1
+        if c in 'a':'z'
+            count[c - 'a' + 1] += 1
+        end
     end
     return count
 end
