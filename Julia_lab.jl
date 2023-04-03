@@ -18,21 +18,26 @@ end
 function parallel_count_chars(nprocs, filename)
     num = filesize(filename)
     pids = workers()
-    @sync @distributed for (i, pid) in enumerate(pids)
-        start = Int64(((i - 1) * num) ÷ nprocs) + 1
-        stop = Int64((i * num) ÷ nprocs)
-        if i == nprocs
-            stop = num
+    @sync begin
+        @distributed for (i, pid) in enumerate(pids)
+            start = Int64(((i - 1) * num) ÷ nprocs) + 1
+            stop = Int64((i * num) ÷ nprocs)
+            if i == nprocs
+                stop = num
+            end
+            local_count = count_chars(filename, start, stop)
+            remote_call_fetch(pid) do
+                @spawnat(pid, identity(local_count))
+            end
         end
-        local_count = count_chars(filename, start, stop)
-        remote_call_fetch(pid, ()->local_count)
     end
-    counts = fetch(@spawnat :any, map(f->f(), fetch(@spawnat :any, nprocs)))
+    counts = fetch(Any[fetch(x) for x in results()])
     count = reduce(+, counts)
     max_count, max_char = findmax(count)
     max_char = Char('a' + max_char - 1)
     println("$max_char occurred the most $max_count times of a total of $num characters.")
 end
+
 
 function main()
     if length(ARGS) != 2
