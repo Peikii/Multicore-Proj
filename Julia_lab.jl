@@ -42,6 +42,7 @@ function main()
 
     nprocs = parse(Int, ARGS[1])
     filename = ARGS[2]
+    println("$nprocs and $filename")
     @time parallel_count_chars(filename, nprocs)
 end
 
