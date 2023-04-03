@@ -35,7 +35,7 @@ function parallel_count_chars(filename, nprocs)
 end
 
 function main()
-    if length(ARGS) < 3
+    if length(ARGS) < 2 || length(ARGS) > 3
         println("Usage: julia <program.jl> <nprocs> <filename>")
         return
     end
