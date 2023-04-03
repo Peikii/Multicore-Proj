@@ -26,7 +26,7 @@ function parallel_count_chars(nprocs, filename)
                 stop = num
             end
             local_count = count_chars(filename, start, stop)
-            remote_call_fetch(:(@spawnat), pid, (main, local_count))
+            remote_call_fetch(:(@spawnat), pid, (identity, local_count))
         end
     end
     counts = fetch(Any[fetch(x) for x in results()])
