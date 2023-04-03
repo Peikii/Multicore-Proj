@@ -19,7 +19,7 @@ function parallel_count_chars(nprocs, filename)
     num = filesize(filename)
     pids = workers()
     @sync begin
-        @distributed for (i, pid) in enumerate(pids)
+        @distributed for (i, pid) = enumerate(pids)
             start = Int64(((i - 1) * num) ÷ nprocs) + 1
             stop = Int64((i * num) ÷ nprocs)
             if i == nprocs
