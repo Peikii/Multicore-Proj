@@ -3,14 +3,6 @@ using Base.Threads
 
 const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
-function count_chars(buffer, start, stop)
-    count = zeros(Int, 4)
-    for j in start:stop
-        count[CHARSET[Char(buffer[j])]] += 1
-    end
-    return count
-end
-
 function main()
     if length(ARGS) != 3
         println("Usage: julia <program.jl> <nprocs> <filename>")
@@ -25,30 +17,30 @@ function main()
     f = open(filename)
     buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
 
-    # Start parallel region with N threads
+    # Initialize thread-local arrays to count the frequency of each character
+    count_local = [zeros(Int, 4) for i in 1:nprocs]
+
+    # Calculate length of buffer per thread
+    chunk_size = div(length(buffer), nprocs)
+
+    # Start parallel region with nprocs threads
     @threads for tid in 1:nprocs
         # Calculate start and end indices for this thread
-        start = div((tid - 1) * file_size, nprocs) + 1
-        stop = div(tid * file_size, nprocs)
-        if tid == nprocs  # Handle case when nprocs is not divisible by file_size
-            stop += rem(file_size, nprocs)
-        end
+        start = (tid - 1) * chunk_size + 1
+        stop = min(tid * chunk_size, length(buffer))
 
-        # Count characters in this thread's portion of the file
-        count_local = count_chars(buffer, start, stop)
-
-        # Use a mutex to update the global counts
-        for i in 1:length(count_local)
-            lock(CHARSET[i]) do
-                CHARSET[i] += count_local[i]
-            end
+        # Loop through characters in buffer for this thread
+        for j in start:stop
+            count_local[tid][CHARSET[Char(buffer[j])]] += 1
         end
     end
 
-    # Find maximum frequency and corresponding character
-    max_count = maximum(values(CHARSET))
-    max_char = findfirst(x -> x == max_count, values(CHARSET))
-    max_char = keys(CHARSET)[max_char]
+    # Combine thread-local arrays into one
+    count = sum(count_local)
+
+    # Loop through entries in array to find maximum frequency and corresponding character
+    max_count = maximum(count)
+    max_char = ['a', 'b', 'c', 'd'][argmax(count)]
 
     println("$max_char occurred the most $max_count times of a total of $file_size characters.")
 
