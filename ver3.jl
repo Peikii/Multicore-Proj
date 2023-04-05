@@ -16,7 +16,7 @@ function main()
     # Open the file and memory-map its contents
     f = open(filename)
     fd = Base.fd(f)
-    buffer = Mmap.mmap(fd, UInt8)
+    buffer = Mmap.mmap(fd, (0, file_size), UInt8)
 
     # Initialize thread-local arrays to count the frequency of each character
     count_local = [zeros(Int, 4) for i in 1:nprocs]
