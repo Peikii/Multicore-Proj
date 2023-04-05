@@ -1,53 +1,55 @@
-using Distributed
+using Mmap
+using Base.Threads
+using StaticArrays
 
-# Define a function that reads a file, counts the frequency of each character, and returns the maximum frequency and corresponding character
-function count_chars(filename::String)
-    count = zeros(Int, 4)
-    max_count = 0
-    max_char = 'a'
+const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
-    # Read the file
-    f = open(filename, "r")
-    text = read(f, String)
+function main()
+    if length(ARGS) != 3
+        println("Usage: julia <program.jl> <nprocs> <filename>")
+        return
+    end
+
+    nprocs = parse(Int, ARGS[1])
+    filename = ARGS[3]
+    file_size = parse(Int, ARGS[2])
+
+    # Open the file and memory-map its contents
+    f = open(filename)
+    buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
+
+    # Initialize thread-local arrays to count the frequency of each character
+    count_local = [SVector{4, Int}(0) for i in 1:nprocs]
+
+    # Start parallel region with N threads
+    @threads for tid in 1:nprocs
+        # Calculate start and end indices for this thread
+        start = div((tid - 1) * file_size, nprocs) + 1
+        stop = div(tid * file_size, nprocs)
+        if tid == nprocs  # Handle case when nprocs is not divisible by file_size
+            stop += rem(file_size, nprocs)
+        end
+
+        # Loop through characters in buffer for this thread
+        @inbounds @simd for j in start:stop
+            count_local[tid][CHARSET[Char(buffer[j])]] += 1
+        end
+    end
+
+    # Combine thread-local arrays into one
+    count = sum(count_local)
+
+    # Loop through entries in array to find maximum frequency and corresponding character
+    max_count = maximum(count)
+    max_char = ['a', 'b', 'c', 'd'][argmax(count)]
+
+    println("$max_char occurred the most $max_count times of a total of $file_size characters.")
+
+    # Close the memory-mapped file and file handle
+    flush(f)
     close(f)
 
-    # Count the characters in parallel
-    @sync @distributed for i = 1:length(text)
-        c = text[i]
-        if c == 'a'
-            @atomic count[1] += 1
-        elseif c == 'b'
-            @atomic count[2] += 1
-        elseif c == 'c'
-            @atomic count[3] += 1
-        elseif c == 'd'
-            @atomic count[4] += 1
-        end
-    end
-
-    # Find the maximum frequency and corresponding character
-    for i = 1:4
-        if count[i] > max_count
-            max_count = count[i]
-            max_char = Char(UInt8('a') + i - 1)
-        end
-    end
-
-    return max_count, max_char
+    return 0
 end
 
-# Get the number of workers
-nworkers()
-
-# Parse command line arguments
-N = parse(Int, ARGS[1]) # number of workers
-filename = ARGS[2] # name of file
-
-# Set the number of workers
-addprocs(N-1)
-
-# Call the function to count the characters
-@time max_count, max_char = count_chars(filename)
-
-# Print the result
-println("$max_char occurred the most $max_count times.")
+main()
