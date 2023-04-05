@@ -35,9 +35,10 @@ function main()
         end
 
         # Atomically update the shared count array
-        for j in 1:4
-            @atomic count_global[j] += @view count_local[j]
+        @inbounds for j in 1:4
+            @atomic count_global[j] += count_local[j]
         end
+
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
