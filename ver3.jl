@@ -1,6 +1,11 @@
 using Base.Threads
 
 function main()
+    if length(ARGS) != 2
+        println("Usage: julia <program.jl> <nprocs> <filename>")
+        return
+    end
+
     N = parse(Int, ARGS[1])  # number of threads
     num = parse(Int, ARGS[2])  # number of characters in file
     filename = ARGS[3]  # name of file
