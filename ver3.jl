@@ -1,3 +1,6 @@
+using Base.Threads
+using Mmap
+
 const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
 function main()
