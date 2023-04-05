@@ -14,7 +14,7 @@ function main()
     file_size = parse(Int, ARGS[2])
 
     # Open the file and memory-map its contents
-    f = open(filename, "r+b")
+    f = open(filename, "r+")
     map = mmap(f)
 
     # Initialize thread-local arrays to count the frequency of each character
