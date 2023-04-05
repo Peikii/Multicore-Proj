@@ -17,7 +17,7 @@ function main()
     close(f)
 
     # Initialize a shared array to count the frequency of each character
-    count = @SVector zeros(Int, 4)
+    count = SharedArray{Int}(4)
 
     # Parallel loop to count character frequencies
     @threads for tid in 1:nprocs
