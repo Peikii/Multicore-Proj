@@ -2,6 +2,7 @@ using Mmap
 using Base.Threads
 using SIMD
 using Distributed
+using SharedArrays
 
 const CHARSET = UInt8['a', 'b', 'c', 'd']
 
