@@ -48,7 +48,7 @@ function main()
     buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
 
     # Initialize shared array to count the frequency of each character
-    count = SharedArray{Int}(undef, 256)
+    count = SharedArray{Int}(zeros(int, 256))
 
     # Scan the buffer to get an estimate of the frequency of each target character
     char_counts = Dict(zip(CHARSET, zeros(Int, length(CHARSET))))
