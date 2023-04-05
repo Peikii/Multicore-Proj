@@ -14,6 +14,8 @@ function main()
 
     # Open the file and read its contents
     f = open(filename, "r")
+    fileinfo = stat(filename)
+    file_size = fileinfo.size
     buffer = Array{UInt32}(undef, file_size)
     read!(f, buffer)
 
