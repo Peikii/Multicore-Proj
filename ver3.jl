@@ -1,9 +1,9 @@
 using Base.Threads
 
-function main(args::Vector{String})
-    N = parse(Int, args[1])  # number of threads
-    num = parse(Int, args[2])  # number of characters in file
-    filename = args[3]  # name of file
+function main()
+    N = parse(Int, ARGS[1])  # number of threads
+    num = parse(Int, ARGS[2])  # number of characters in file
+    filename = ARGS[3]  # name of file
     fp = fopen(filename, "r")  # open file for reading
     if fp == C_NULL
         println("Error opening file!!!")
