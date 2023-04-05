@@ -1,7 +1,7 @@
 using Base.Threads
 
 function main()
-    if length(ARGS) != 2
+    if length(ARGS) != 3
         println("Usage: julia <program.jl> <nprocs> <filename>")
         return
     end
