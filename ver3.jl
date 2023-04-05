@@ -1,5 +1,5 @@
-using Base.Threads
 using Mmap
+using Base.Threads
 
 const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
@@ -14,8 +14,8 @@ function main()
     file_size = parse(Int, ARGS[2])
 
     # Open the file and memory-map its contents
-    f = open(filename, "r+")
-    map = mmap(f)
+    f = open(filename, "r")
+    buffer = Mmap.mmap(f, UInt32, (file_size,))
 
     # Initialize thread-local arrays to count the frequency of each character
     count_local = [zeros(Int, 4) for i in 1:nprocs]
@@ -31,7 +31,7 @@ function main()
 
         # Loop through characters in buffer for this thread
         for j in start:stop
-            count_local[tid][CHARSET[Char(map[j])]] += 1
+            count_local[tid][CHARSET[Char(buffer[j])]] += 1
         end
     end
 
@@ -44,8 +44,8 @@ function main()
 
     println("$max_char occurred the most $max_count times of a total of $file_size characters.")
 
-    # Unmap the memory and close the file
-    munmap(map)
+    # Close the memory-mapped file and file handle
+    flush(f)
     close(f)
 
     return 0
