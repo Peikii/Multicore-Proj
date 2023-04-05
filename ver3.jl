@@ -10,12 +10,10 @@ function main()
 
     nprocs = parse(Int, ARGS[1])
     filename = ARGS[3]
-    file_size = min(parse(Int, ARGS[2]), filesize(filename))
+    file_size = parse(Int, ARGS[2])
 
     # Open the file and read its contents
-    f = open(filename, "r")
-    fileinfo = stat(filename)
-    file_size = fileinfo.size
+    f = open(filename, "r", true)
     buffer = Array{UInt32}(undef, file_size)
     read!(f, buffer)
 
