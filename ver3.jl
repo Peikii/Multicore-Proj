@@ -13,7 +13,7 @@ function main()
     file_size = parse(Int, ARGS[2])
 
     # Open the file and read its contents
-    f = open(filename, "rb")
+    f = open(filename, "r+b")
     buffer = Array{UInt32}(undef, file_size)
     read!(f, buffer)
 
