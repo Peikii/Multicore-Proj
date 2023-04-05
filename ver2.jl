@@ -9,7 +9,7 @@ const CHARSET = UInt8['a', 'b', 'c', 'd']
 function load_balance(file_size::Int64, char_counts::Dict{UInt8, Int64}, nprocs::Int64)
     total_counts = sum(values(char_counts))
     work_size = div(total_counts, nprocs)
-    work_loads = Vector{Vector{UInt8}}(undef, nprocs)
+    work_loads = [Vector{UInt8}() for i in 1:nprocs]
     remaining_counts = copy(char_counts)
     for (char, count) in char_counts
         proc = argmin([sum(work_sizes) for work_sizes in work_loads])
