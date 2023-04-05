@@ -6,33 +6,25 @@ using SharedArrays
 
 const CHARSET = UInt8['a', 'b', 'c', 'd']
 
-function load_balance(file_size, char_counts, nprocs)
-    # Calculate total number of target characters
-    total_chars = sum(values(char_counts))
-
-    # Calculate target characters per thread
-    chars_per_thread = ceil(Int, total_chars / nprocs)
-
-    # Partition file into segments based on target character counts
-    segment_starts = [1]
-    segment_chars = 0
-    segment_ranges = []
+function load_balance(file_size::Int64, char_counts::Dict{UInt8, Int64}, nprocs::Int64)
+    work_loads = Vector{Int64}[]
+    remaining_counts = copy(char_counts)
+    for i in 1:nprocs
+        push!(work_loads, Int64[])
+    end
     for (char, count) in char_counts
-        segment_chars += count
-        if segment_chars > chars_per_thread
-            # Split current segment at this character
-            split_index = findnext(x -> x == char, CHARSET, segment_starts[end])
-            push!(segment_starts, split_index)
-            segment_chars -= count
-            push!(segment_ranges, (segment_starts[end-1], split_index-1))
+        proc = argmin([sum(work_load) for work_load in work_loads])
+        if isempty(remaining_counts) # added this if statement
+            break
+        end
+        if count > 0
+            push!(work_loads[proc], char)
+            remaining_counts[char] -= 1
         end
     end
-    push!(segment_starts, file_size+1)
-    push!(segment_ranges, (segment_starts[end-1], file_size))
-
-    return segment_ranges
+    work_sizes = [sum([char_counts[char] for char in work_load]) for work_load in work_loads]
+    return work_sizes
 end
-
 
 function main()
     if length(ARGS) != 3
