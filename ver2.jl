@@ -1,6 +1,7 @@
 using Mmap
 using Base.Threads
 using SIMD
+using Distributed
 
 const CHARSET = UInt8['a', 'b', 'c', 'd']
 
