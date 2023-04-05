@@ -1,5 +1,4 @@
 using Base.Threads
-using Mmap
 
 const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
@@ -13,10 +12,10 @@ function main()
     file_size = parse(Int, ARGS[2])
     filename = ARGS[3]
 
-    # Memory-map the file into memory
+    # Read file into buffer
     f = open(filename, "r")
-    file_size = filesize(f)
-    buffer = unsafe_wrap(Array{UInt8,1}, Mmap.mmap(f, UInt8, file_size))
+    buffer = read(f, UInt8[file_size])
+    close(f)
 
     # Initialize thread-local arrays to count the frequency of each character
     count_local = [zeros(Int, 4) for i in 1:nprocs]
