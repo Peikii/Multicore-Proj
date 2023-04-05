@@ -9,12 +9,12 @@ function main()
     end
 
     nprocs = parse(Int, ARGS[1])
-    file_size = parse(Int, ARGS[2])
     filename = ARGS[3]
+    file_size = min(parse(Int, ARGS[2]), filesize(filename))
 
     # Open the file and read its contents
     f = open(filename, "r")
-    buffer = Array{UInt16}(undef, file_size)
+    buffer = Array{UInt32}(undef, file_size)
     read!(f, buffer)
 
     # Initialize thread-local arrays to count the frequency of each character
