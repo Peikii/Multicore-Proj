@@ -18,8 +18,11 @@ function main()
     buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
 
     # Initialize thread-local arrays to count the frequency of each character
-    count = zeros(Int, 4)
     count_global = zeros(Int, 4)
+
+    # Create a lock
+    mylock = ReentrantLock()
+
     @threads for tid in 1:nprocs
         count_local = zeros(Int, 4)
         # Calculate start and end indices for this thread
@@ -34,10 +37,13 @@ function main()
             count_local[CHARSET[Char(buffer[j])]] += 1
         end
 
-        # Atomically update the shared count array
+        # Acquire the lock before updating the shared count array
+        lock(mylock)
         for j in 1:4
-            @atomic count_global[j] += count_local[j] : count_global[j]
+            count_global[j] += count_local[j]
         end
+        # Release the lock
+        unlock(mylock)
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
