@@ -14,7 +14,9 @@ function main()
     filename = ARGS[3]
 
     # Memory-map the file into memory
-    buffer = unsafe_wrap(Array{UInt8, 1}, Mmap.mmap(open(filename, "r"), UInt8, file_size))
+    f = open(filename, "r")
+    file_size = filesize(f)
+    buffer = unsafe_wrap(Array{UInt8,1}, Mmap.mmap(f, UInt8, file_size))
 
     # Initialize thread-local arrays to count the frequency of each character
     count_local = [zeros(Int, 4) for i in 1:nprocs]
