@@ -16,6 +16,7 @@ function load_balance(file_size, char_counts, nprocs)
     # Partition file into segments based on target character counts
     segment_starts = [1]
     segment_chars = 0
+    segment_ranges = []
     for (char, count) in char_counts
         segment_chars += count
         if segment_chars > chars_per_thread
@@ -23,15 +24,15 @@ function load_balance(file_size, char_counts, nprocs)
             split_index = findnext(x -> x == char, CHARSET, segment_starts[end])
             push!(segment_starts, split_index)
             segment_chars -= count
+            push!(segment_ranges, (segment_starts[end-1], split_index-1))
         end
     end
     push!(segment_starts, file_size+1)
-
-    # Calculate segment ranges for each thread
-    segment_ranges = [(segment_starts[i], segment_starts[i+1]-1) for i in 1:length(segment_starts)-1]
+    push!(segment_ranges, (segment_starts[end-1], file_size))
 
     return segment_ranges
 end
+
 
 function main()
     if length(ARGS) != 3
