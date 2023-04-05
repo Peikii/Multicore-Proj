@@ -1,30 +1,4 @@
-using Distributed
-
-@everywhere function count_chars(filename, file_size, start, stop)
-    # Open the file and read its contents into a buffer
-    f = open(filename)
-    buffer = read(f, file_size)
-    close(f)
-
-    # Initialize an array to count the frequency of each character
-    count = zeros(Int, 4)
-
-    # Loop through characters in buffer for this process
-    for j in start:stop
-        c = buffer[j]
-        if c == 'a'
-            count[1] += 1
-        elseif c == 'b'
-            count[2] += 1
-        elseif c == 'c'
-            count[3] += 1
-        elseif c == 'd'
-            count[4] += 1
-        end
-    end
-
-    return count
-end
+using Base.Threads
 
 function main()
     if length(ARGS) != 3
@@ -36,24 +10,42 @@ function main()
     filename = ARGS[3]
     file_size = parse(Int, ARGS[2])
 
-    # Add worker processes
-    addprocs(nprocs - 1)
+    # Open the file and read its contents into a buffer
+    f = open(filename)
+    buffer = read(f, file_size)
+    close(f)
 
-    # Initialize global array to count the frequency of each character
+    # Initialize thread-local arrays to count the frequency of each character
     count_global = zeros(Int, 4)
+    count_local = [zeros(Int, 4) for _ in 1:nprocs]
 
-    # Calculate start and end indices for each process
-    starts = [div((pid - 1) * file_size, nprocs) + 1 for pid in 1:nprocs]
-    stops = [div(pid * file_size, nprocs) for pid in 1:nprocs]
-    stops[end] += rem(file_size, nprocs)  # Handle case when nprocs is not divisible by file_size
+    @threads for tid in 1:nprocs
+        # Calculate start and end indices for this thread
+        start = (tid - 1) * div(file_size, nprocs) + 1
+        stop = tid * div(file_size, nprocs)
+        if tid == nprocs  # Handle case when nprocs is not divisible by file_size
+            stop += rem(file_size, nprocs)
+        end
+    
+        # Loop through characters in buffer for this thread
+        for j in start:stop
+            c = buffer[j]
+            if c == 'a'
+                count_local[tid][1] += 1
+            elseif c == 'b'
+                count_local[tid][2] += 1
+            elseif c == 'c'
+                count_local[tid][3] += 1
+            elseif c == 'd'
+                count_local[tid][4] += 1
+            end
+        end
+    end
 
-    # Distribute computation among worker processes
-    counts = pmap((args...) -> count_chars(filename, file_size, args...), zip(starts, stops))
-
-    # Combine counts from all processes into global array
+    # Combine thread-local arrays into global array
     for i in 1:nprocs
         for j in 1:4
-            count_global[j] += counts[i][j]
+            count_global[j] += count_local[i][j]
         end
     end
 
