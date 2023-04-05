@@ -7,19 +7,27 @@ using SharedArrays
 const CHARSET = UInt8['a', 'b', 'c', 'd']
 
 function load_balance(file_size::Int64, char_counts::Dict{UInt8, Int64}, nprocs::Int64)
+    total_counts = sum(values(char_counts))
+    work_size = div(total_counts, nprocs)
     work_loads = Vector{Vector{UInt8}}(undef, nprocs)
     remaining_counts = copy(char_counts)
     for (char, count) in char_counts
-        proc = argmin([sum(work_load) for work_load in work_loads])
-        if count > 0
+        proc = argmin([sum(work_sizes) for work_sizes in work_loads])
+        while count > 0
             push!(work_loads[proc], char)
             remaining_counts[char] -= 1
+            count -= 1
+            if sum([remaining_counts[c] for c in CHARSET]) == 0
+                break
+            end
+            if length(work_loads[proc]) >= work_size
+                proc = argmin([sum(work_sizes) for work_sizes in work_loads])
+            end
         end
     end
     work_sizes = [sum([char_counts[char] for char in work_load]) for work_load in work_loads]
     return work_sizes
 end
-
 
 function main()
     if length(ARGS) != 3
