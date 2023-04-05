@@ -36,7 +36,7 @@ function main()
 
         # Atomically update the shared count array
         for j in 1:4
-            @atomic count_global[CHARSET[Char(buffer[j])]] += @view count_local[CHARSET[Char(buffer[j])]]
+            @atomic count_global[j] += getindex(@view count_local, j)
         end
     end
 
