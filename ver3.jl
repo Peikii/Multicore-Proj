@@ -12,10 +12,10 @@ function main()
     file_size = parse(Int, ARGS[2])
     filename = ARGS[3]
 
-    # Memory-map the file into memory
+    # Open the file and read its contents
     f = open(filename, "r")
-    file_size = filesize(f)
-    buffer = unsafe_wrap(Array{UInt32,1}, Mmap.mmap(f, UInt32, file_size))
+    buffer = Array{UInt32}(undef, file_size)
+    read!(f, buffer)
 
     # Initialize thread-local arrays to count the frequency of each character
     count_local = [zeros(Int, 4) for i in 1:nprocs]
@@ -31,8 +31,7 @@ function main()
 
         # Loop through characters in buffer for this thread
         for j in start:stop
-            c = Char(read(f, UInt8))
-            count_local[tid][CHARSET[c]] += 1
+            count_local[tid][CHARSET[Char(buffer[j])]] += 1
         end
     end
 
