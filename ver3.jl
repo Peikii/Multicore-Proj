@@ -1,4 +1,7 @@
 using Base.Threads
+using Mmap
+
+const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
 function main()
     if length(ARGS) != 3
@@ -6,63 +9,40 @@ function main()
         return
     end
 
-    N = parse(Int, ARGS[1])  # number of threads
-    num = parse(Int, ARGS[2])  # number of characters in file
-    filename = ARGS[3]  # name of file
-    fp = fopen(filename, "r")  # open file for reading
-    if fp == C_NULL
-        println("Error opening file!!!")
-        return 1
-    end
+    nprocs = parse(Int, ARGS[1])
+    file_size = parse(Int, ARGS[2])
+    filename = ARGS[3]
 
-    # Read the file into the buffer
-    buffer = Vector{UInt8}(undef, num)
-    fread(fp, buffer)
+    # Memory-map the file into memory
+    buffer = unsafe_wrap(Array{UInt8, 1}, mmap(filename, UInt8, file_size))
 
-    # Initialize arrays to count the frequency of each character
-    count = zeros(Int, 4)
+    # Initialize thread-local arrays to count the frequency of each character
+    count_local = [zeros(Int, 4) for i in 1:nprocs]
 
     # Start parallel region with N threads
-    @threads for i in 1:N
-        start = div((i - 1) * num, N) + 1  # calculate start index for this thread
-        stop = div(i * num, N)  # calculate end index for this thread
-        if i == N  # handle case when N is not divisible by num
-            stop += rem(num, N)
+    @threads for tid in 1:nprocs
+        # Calculate start and end indices for this thread
+        start = div((tid - 1) * file_size, nprocs) + 1
+        stop = div(tid * file_size, nprocs)
+        if tid == nprocs  # Handle case when nprocs is not divisible by file_size
+            stop += rem(file_size, nprocs)
         end
-
-        # Private count array for each thread
-        count_local = zeros(Int, 4)
 
         # Loop through characters in buffer for this thread
         for j in start:stop
-            c = Char(buffer[j])  # read a character from buffer
-
-            # Determine which entry of array to increment based on character read from buffer
-            if c == 'a'
-                count_local[1] += 1
-            elseif c == 'b'
-                count_local[2] += 1
-            elseif c == 'c'
-                count_local[3] += 1
-            elseif c == 'd'
-                count_local[4] += 1
-            end
+            count_local[tid][CHARSET[Char(buffer[j])]] += 1
         end
-
-        # Combine arrays for each thread in to one
-        lock = Base.Threads.get_lock()
-        Base.Threads.lock(lock)
-        count .+= count_local
-        Base.Threads.unlock(lock)
     end
+
+    # Combine thread-local arrays into one
+    count = sum(count_local)
 
     # Loop through entries in array to find maximum frequency and corresponding character
     max_count = maximum(count)
     max_char = ['a', 'b', 'c', 'd'][argmax(count)]
 
-    println("$max_char occurred the most $max_count times of a total of $num characters.")
+    println("$max_char occurred the most $max_count times of a total of $file_size characters.")
 
-    fclose(fp)  # close the file
     return 0
 end
 
