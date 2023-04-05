@@ -1,8 +1,15 @@
 using Mmap
 using Base.Threads
-using SIMD
 
 const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
+
+function count_chars(buffer, start, stop)
+    count = zeros(Int, 4)
+    for j in start:stop
+        count[CHARSET[Char(buffer[j])]] += 1
+    end
+    return count
+end
 
 function main()
     if length(ARGS) != 3
@@ -18,9 +25,6 @@ function main()
     f = open(filename)
     buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
 
-    # Initialize thread-local arrays to count the frequency of each character
-    count_local = [zeros(Int, 4) for i in 1:nprocs]
-
     # Start parallel region with N threads
     @threads for tid in 1:nprocs
         # Calculate start and end indices for this thread
@@ -30,23 +34,21 @@ function main()
             stop += rem(file_size, nprocs)
         end
 
-        # Loop through characters in buffer for this thread using @simd for better vectorization
-        @simd for j in start:stop
-            count_local[tid][CHARSET[Char(buffer[j])]] += 1
+        # Count characters in this thread's portion of the file
+        count_local = count_chars(buffer, start, stop)
+
+        # Use a mutex to update the global counts
+        for i in 1:length(count_local)
+            lock(CHARSET[i]) do
+                CHARSET[i] += count_local[i]
+            end
         end
     end
 
-    # Combine thread-local arrays into one using @simd for better vectorization
-    count = [zeros(Int, 4) for i in 1:Threads.nthreads()]
-    @inbounds @simd for i in 1:4
-        for j in 1:nprocs
-            count[1][i] += count_local[j][i]
-        end
-    end
-
-    # Loop through entries in array to find maximum frequency and corresponding character
-    max_count = maximum(count[1])
-    max_char = ['a', 'b', 'c', 'd'][argmax(count[1])]
+    # Find maximum frequency and corresponding character
+    max_count = maximum(values(CHARSET))
+    max_char = findfirst(x -> x == max_count, values(CHARSET))
+    max_char = keys(CHARSET)[max_char]
 
     println("$max_char occurred the most $max_count times of a total of $file_size characters.")
 
