@@ -36,7 +36,7 @@ function main()
 
         # Atomically update the shared count array
         for j in 1:4
-            @atomic count_global[j].= count_local[j]
+            @atomic count_global[j] += count_local[j] : count_global[j]
         end
     end
 
