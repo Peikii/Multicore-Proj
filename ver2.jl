@@ -35,10 +35,9 @@ function main()
         end
 
         # Atomically update the shared count array
-        @inbounds for j in 1:4
-            @atomic count_global[j] += count_local[j]
+        for j in 1:4
+            @atomic count_global[CHARSET[Char(buffer[j])]] += @view count_local[CHARSET[Char(buffer[j])]]
         end
-
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
