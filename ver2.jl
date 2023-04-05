@@ -1,33 +1,7 @@
 using Mmap
 using Base.Threads
-using SIMD
-using Distributed
-using SharedArrays
 
-const CHARSET = UInt8['a', 'b', 'c', 'd']
-
-function load_balance(file_size::Int64, char_counts::Dict{UInt8, Int64}, nprocs::Int64)
-    total_counts = sum(values(char_counts))
-    work_size = div(total_counts, nprocs)
-    work_loads = [Vector{UInt8}() for i in 1:nprocs]
-    remaining_counts = copy(char_counts)
-    for (char, count) in char_counts
-        proc = argmin([sum(work_sizes) for work_sizes in work_loads])
-        while count > 0
-            push!(work_loads[proc], char)
-            remaining_counts[char] -= 1
-            count -= 1
-            if sum([remaining_counts[c] for c in CHARSET]) == 0
-                break
-            end
-            if length(work_loads[proc]) >= work_size
-                proc = argmin([sum(work_sizes) for work_sizes in work_loads])
-            end
-        end
-    end
-    work_sizes = [sum([char_counts[char] for char in work_load]) for work_load in work_loads]
-    return work_sizes
-end
+const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
 function main()
     if length(ARGS) != 3
@@ -43,48 +17,39 @@ function main()
     f = open(filename)
     buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
 
-    # Initialize shared array to count the frequency of each character
-    count = SharedArray{Int}(zeros(Int, 256))
-
-    # Scan the buffer to get an estimate of the frequency of each target character
-    char_counts = Dict(zip(CHARSET, zeros(Int, length(CHARSET))))
-    for i in 1:file_size
-        char = buffer[i]
-        if char in CHARSET
-            char_counts[char] += 1
-        end
-    end
-
-    # Partition the file into segments based on target character counts
-    segment_ranges = load_balance(file_size, char_counts, nprocs)
+    # Initialize thread-local arrays to count the frequency of each character
+    count_local = [zeros(Int, 4) for i in 1:nprocs]
 
     # Start parallel region with N threads
-    @sync @distributed for tid in 1:nprocs
-        # Get segment range for this thread
-        start, stop = segment_ranges[tid]
-
-        # Initialize thread-local array to count the frequency of each character
-        count_local = zeros(Int, 256)
-
-        # Loop through characters in buffer for this thread
-        for j in start:stop
-            count_local[buffer[j]] += 1
+    @threads for tid in 1:nprocs
+        # Calculate start and end indices for this thread
+        start = div((tid - 1) * file_size, nprocs) + 1
+        stop = div(tid * file_size, nprocs)
+        if tid == nprocs  # Handle case when nprocs is not divisible by file_size
+            stop += rem(file_size, nprocs)
         end
 
-        # Accumulate thread-local frequency counts into shared array using SIMD
-        for i in 1:4:length(count_local)-3
-            s1 = vsum(reinterpret(SIMD.UInt32, count_local[i:i+3]))
-            s2 = vsum(reinterpret(SIMD.UInt32, count[i:i+3]))
-            s = reinterpret(Vector{Int}, s1+s2)
-            count[i:i+3] = s
+        # Calculate local counts for this thread
+        for j in start:stop
+            count_local[tid][CHARSET[Char(buffer[j])]] += 1
+        end
+
+        # Synchronize threads before updating global counts
+        @threads barrier
+
+        # Update global counts using local counts
+        @threads for i in 1:4
+            for tid in 1:nprocs
+                count[i] += count_local[tid][i]
+            end
         end
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
-    max_count = maximum(count[CHARSET])
-    max_char = findfirst(x -> count[x] == max_count, CHARSET)
+    max_count = maximum(count)
+    max_char = ['a', 'b', 'c', 'd'][argmax(count)]
 
-    println("$(Char(max_char)) occurred the most $max_count times of a total of $file_size characters.")
+    println("$max_char occurred the most $max_count times of a total of $file_size characters.")
 
     # Close the memory-mapped file and file handle
     flush(f)
