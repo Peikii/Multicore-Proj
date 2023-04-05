@@ -35,7 +35,7 @@ function main()
 
         # Atomically update the shared count array
         @threads for k in 1:4
-            Threads.atomic_add!(count[k], count_local[k])
+            count_global[i] += count_local[i]
         end
     end
 
