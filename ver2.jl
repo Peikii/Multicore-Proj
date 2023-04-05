@@ -1,5 +1,6 @@
 using Mmap
 using Base.Threads
+using SIMD
 
 const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
 
@@ -29,25 +30,23 @@ function main()
             stop += rem(file_size, nprocs)
         end
 
-        # Calculate local counts for this thread
-        for j in start:stop
+        # Loop through characters in buffer for this thread using @simd for better vectorization
+        @simd for j in start:stop
             count_local[tid][CHARSET[Char(buffer[j])]] += 1
         end
+    end
 
-        # Synchronize threads before updating global counts
-        @threads barrier
-
-        # Update global counts using local counts
-        @threads for i in 1:4
-            for tid in 1:nprocs
-                count[i] += count_local[tid][i]
-            end
+    # Combine thread-local arrays into one using @simd for better vectorization
+    count = [zeros(Int, 4) for i in 1:Threads.nthreads()]
+    @inbounds @simd for i in 1:4
+        for j in 1:nprocs
+            count[1][i] += count_local[j][i]
         end
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
-    max_count = maximum(count)
-    max_char = ['a', 'b', 'c', 'd'][argmax(count)]
+    max_count = maximum(count[1])
+    max_char = ['a', 'b', 'c', 'd'][argmax(count[1])]
 
     println("$max_char occurred the most $max_count times of a total of $file_size characters.")
 
