@@ -20,10 +20,8 @@ function main()
     # Initialize thread-local arrays to count the frequency of each character
     count = zeros(Int, 4)
     count_global = zeros(Int, 4)
-
     @threads for tid in 1:nprocs
         count_local = zeros(Int, 4)
-
         # Calculate start and end indices for this thread
         start = div((tid - 1) * file_size, nprocs) + 1
         stop = div(tid * file_size, nprocs)
@@ -37,9 +35,7 @@ function main()
         end
 
         # Atomically update the shared count array
-        @threads for k in 1:4
-            @atomic count_global[k] += count_local[k]
-        end
+        @atomic count_global[i] += @view count_local[i]
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
