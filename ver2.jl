@@ -18,38 +18,30 @@ function main()
     buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
 
     # Initialize thread-local arrays to count the frequency of each character
-    count = [zeros(Int, 4) for i in 1:nprocs]
-
-    # Start parallel region with N threads
+    count = zeros(Int, 4)
     @threads for tid in 1:nprocs
+        count_local = zeros(Int, 4)
         # Calculate start and end indices for this thread
         start = div((tid - 1) * file_size, nprocs) + 1
         stop = div(tid * file_size, nprocs)
         if tid == nprocs  # Handle case when nprocs is not divisible by file_size
             stop += rem(file_size, nprocs)
         end
-        
-        # Initialize private count array for this thread
-        count_local = zeros(Int, 4)
 
         # Loop through characters in buffer for this thread
         for j in start:stop
             count_local[CHARSET[Char(buffer[j])]] += 1
         end
-        
-        # Store the private count array in the corresponding position in the global count array
-        count[tid] = count_local
-    end
 
-    # Combine thread-local arrays into one
-    global_count = zeros(Int, 4)
-    for i in 1:nprocs
-        global_count .+= count[i]
+        # Atomically update the shared count array
+        @threads for k in 1:4
+            Threads.atomic_add!(count[k], count_local[k])
+        end
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
-    max_count = maximum(global_count)
-    max_char = ['a', 'b', 'c', 'd'][argmax(global_count)]
+    max_count = maximum(count)
+    max_char = ['a', 'b', 'c', 'd'][argmax(count)]
 
     println("$max_char occurred the most $max_count times of a total of $file_size characters.")
 
