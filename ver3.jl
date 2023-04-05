@@ -14,7 +14,7 @@ function main()
 
     # Open the file and read its contents
     f = open(filename, "r")
-    buffer = Array{UInt32}(undef, file_size)
+    buffer = Array{UInt16}(undef, file_size)
     read!(f, buffer)
 
     # Initialize thread-local arrays to count the frequency of each character
