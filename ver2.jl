@@ -1,7 +1,5 @@
-using Mmap
 using Base.Threads
-
-const CHARSET = Dict('a' => 1, 'b' => 2, 'c' => 3, 'd' => 4)
+using SharedArrays
 
 function main()
     if length(ARGS) != 3
@@ -13,14 +11,15 @@ function main()
     filename = ARGS[3]
     file_size = parse(Int, ARGS[2])
 
-    # Open the file and memory-map its contents
+    # Open the file and read its contents into a buffer
     f = open(filename)
-    buffer = Mmap.mmap(f, Vector{UInt8}, file_size)
+    buffer = read(f, file_size)
+    close(f)
 
-    # Initialize thread-local arrays to count the frequency of each character
-    count_global = zeros(Int, 4)
-    count_local = [zeros(Int, 4) for _ in 1:nprocs]
+    # Initialize a shared array to count the frequency of each character
+    count = @SVector zeros(Int, 4)
 
+    # Parallel loop to count character frequencies
     @threads for tid in 1:nprocs
         # Calculate start and end indices for this thread
         start = div((tid - 1) * file_size, nprocs) + 1
@@ -31,26 +30,24 @@ function main()
 
         # Loop through characters in buffer for this thread
         for j in start:stop
-            count_local[tid][CHARSET[Char(buffer[j])]] += 1
-        end
-    end
-
-    # Combine thread-local arrays into global array
-    for i in 1:nprocs
-        for j in 1:4
-            count_global[j] += count_local[i][j]
+            c = buffer[j]
+            if c == 'a'
+                atomic_add!(count[1], 1)
+            elseif c == 'b'
+                atomic_add!(count[2], 1)
+            elseif c == 'c'
+                atomic_add!(count[3], 1)
+            elseif c == 'd'
+                atomic_add!(count[4], 1)
+            end
         end
     end
 
     # Loop through entries in array to find maximum frequency and corresponding character
-    max_count = maximum(count_global)
-    max_char = ['a', 'b', 'c', 'd'][argmax(count_global)]
+    max_count = maximum(count)
+    max_char = ['a', 'b', 'c', 'd'][argmax(count)]
 
     println("$max_char occurred the most $max_count times of a total of $file_size characters.")
-
-    # Close the memory-mapped file and file handle
-    flush(f)
-    close(f)
 
     return 0
 end
